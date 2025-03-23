@@ -419,7 +419,7 @@ class CSRankingsDashboard:
 
                     # Institution paper count table
                     with st.expander(f"Institutions with Publications ({len(df)} found)", expanded=True):
-                        st.dataframe(df, use_container_width=True)
+                        st.dataframe(df.set_index('Rank'), use_container_width=True)
 
                     # Only display charts if we have data
                     if not df.empty:
@@ -508,7 +508,7 @@ class CSRankingsDashboard:
 
                     # Author paper count table
                     with st.expander(f"Scholars with Publications ({len(df)} found)", expanded=True):
-                        st.dataframe(df, use_container_width=True)
+                        st.dataframe(df.set_index('Rank'), use_container_width=True)
 
                     # Only display charts if we have data
                     if not df.empty:
