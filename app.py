@@ -329,7 +329,7 @@ class CSRankingsDashboard:
         # Analysis type selection
         analysis_type = st.sidebar.radio(
             "Select analysis type",
-            ["Top 100 Institutions", "Top 100 Scholars"],
+            ["Top 100 Scholars"，"Top 100 Institutions"],
             help="Select the type of entity you want to analyze"
         )
 
