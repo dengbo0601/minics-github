@@ -318,29 +318,46 @@ class CSRankingsDashboard:
     def create_streamlit_app(self):
         """Create Streamlit application"""
         st.set_page_config(page_title="Academic Analysis Dashboard", layout="wide")
-        # 移动设备检测和提示消息
+        # 找到 create_streamlit_app 方法中的这一行:
+        st.set_page_config(page_title="Academic Analysis Dashboard", layout="wide")
+        # 移动设备检测和提示消息（同时支持明亮模式和暗色模式）
         st.markdown("""
         <style>
+        /* 基础样式 */
+        .mobile-message {
+            display: none;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        
+        /* 明亮模式样式 */
+        .mobile-message {
+            background-color: #e6f2ff;
+            border-left: 4px solid #1E90FF;
+            color: #0a4f8f;
+        }
+        
+        /* 暗色模式样式 */
+        body[data-theme="dark"] .mobile-message {
+            background-color: #1e3a5f;
+            border-left: 4px solid #4da6ff;
+            color: #e6f2ff;
+        }
+        
+        /* 仅在移动设备上显示 */
         @media (max-width: 768px) {
             .mobile-message {
                 display: block;
-                padding: 10px;
-                background-color: #f0f8ff;
-                border-left: 4px solid #1E90FF;
-                border-radius: 4px;
-                margin-bottom: 15px;
-            }
-        }
-        @media (min-width: 769px) {
-            .mobile-message {
-                display: none;
             }
         }
         </style>
         <div class="mobile-message">
-            <b>📱 检测到移动设备:</b> 请点击<b>左上角的 ">" 按钮</b>打开配置面板。
+            <span style="font-size: 1.1em;">📱手机使用:</span> 请点击<b>左上角的 ">" 按钮</b>进入配置页面。
         </div>
         """, unsafe_allow_html=True)
+    
         st.title("Academic Publications Analysis Dashboard")
 
         # Sidebar configuration
