@@ -318,8 +318,6 @@ class CSRankingsDashboard:
     def create_streamlit_app(self):
         """Create Streamlit application"""
         st.set_page_config(page_title="Academic Analysis Dashboard", layout="wide")
-        # 找到 create_streamlit_app 方法中的这一行:
-        st.set_page_config(page_title="Academic Analysis Dashboard", layout="wide")
         # 移动设备检测和提示消息（同时支持明亮模式和暗色模式）
         st.markdown("""
         <style>
