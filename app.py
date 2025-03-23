@@ -317,11 +317,11 @@ class CSRankingsDashboard:
 
     def create_streamlit_app(self):
         """Create Streamlit application"""
-        st.set_page_config(page_title="CSRankings Academic Analysis Dashboard", layout="wide")
+        st.set_page_config(page_title="Academic Analysis Dashboard", layout="wide")
         st.title("Academic Publications Analysis Dashboard")
 
         # Sidebar configuration
-        st.sidebar.header("Analysis Configuration")
+        st.sidebar.header("Configuration")
 
         # Get areas and conferences information
         areas_info = self.get_areas_and_conferences()
@@ -473,7 +473,7 @@ class CSRankingsDashboard:
                 # Analyze top authors - 不限制为100个，显示所有有发表的学者
                 top_authors, author_yearly_counts = self.analyze_top_authors(filtered_articles, top_n=None)
 
-                st.write(f"发现 {len(top_authors)} 位具有符合条件发表的学者")
+                #st.write(f"发现 {len(top_authors)} 位具有符合条件发表的学者")
 
                 # Create dataframe for display - even if empty, we'll create a structure
                 author_data = []
