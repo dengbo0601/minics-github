@@ -1,0 +1,385 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Publications Analysis Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .config-card {
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .results-section {
+            margin-top: 30px;
+        }
+        .chart-container {
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+            }
+        }
+        #loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .table-responsive {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <h1 class="text-center mb-4">Academic Publications Analysis Dashboard</h1>
+        
+        <!-- Configuration Card -->
+        <div class="card config-card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Configuration</h5>
+            </div>
+            <div class="card-body">
+                <form id="analysis-form">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Analysis Type</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="analysis_type" id="type-authors" value="authors" checked>
+                                    <label class="form-check-label" for="type-authors">Top 100 Scholars</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="analysis_type" id="type-institutions" value="institutions">
+                                    <label class="form-check-label" for="type-institutions">Top 100 Institutions</label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Year Range</label>
+                                <div class="row">
+                                    <div class="col">
+                                        <input type="number" class="form-control" name="start_year" id="start-year" min="{{ min_year }}" max="{{ max_year }}" value="2020">
+                                    </div>
+                                    <div class="col-auto pt-2">to</div>
+                                    <div class="col">
+                                        <input type="number" class="form-control" name="end_year" id="end-year" min="{{ min_year }}" max="{{ max_year }}" value="2025">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Research Areas</label>
+                                <select class="form-select" id="research-areas" multiple size="3">
+                                    {% for area_name in areas %}
+                                    <option value="{{ area_name }}">{{ area_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Conferences</label>
+                                <select class="form-select" id="conferences" name="conferences" multiple size="5">
+                                    <!-- Will be populated via JavaScript -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary px-4 py-2">Start Analysis</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div id="loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Analyzing data, please wait...</p>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="results" class="results-section" style="display: none;">
+            <hr>
+            <div id="summary" class="alert alert-info"></div>
+            
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card mb-4">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0" id="results-title">Analysis Results</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-bordered" id="results-table">
+                                    <!-- Will be populated via JavaScript -->
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card mb-4">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">Overall Analysis</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="bar-chart" class="chart-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">Yearly Trends</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="trend-chart" class="chart-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap & jQuery JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Store conference data
+        const areasData = {{ areas|tojson }};
+        
+        // Update conferences based on selected areas
+        function updateConferences() {
+            const selectedAreas = Array.from(document.getElementById('research-areas').selectedOptions).map(option => option.value);
+            const conferencesSelect = document.getElementById('conferences');
+            
+            // Clear current options
+            conferencesSelect.innerHTML = '';
+            
+            // Get all conferences from selected areas
+            const allConferences = new Set();
+            selectedAreas.forEach(area => {
+                if (areasData[area] && areasData[area].conferences) {
+                    areasData[area].conferences.forEach(conf => allConferences.add(conf));
+                }
+            });
+            
+            // Add conferences as options
+            Array.from(allConferences).sort().forEach(conf => {
+                const option = document.createElement('option');
+                option.value = conf;
+                option.textContent = conf;
+                conferencesSelect.appendChild(option);
+            });
+        }
+        
+        // Initial update
+        document.getElementById('research-areas').addEventListener('change', updateConferences);
+        
+        // Form submission
+        document.getElementById('analysis-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            
+            // Get form data
+            const formData = new FormData(this);
+            
+            // Get selected conferences
+            const conferencesSelect = document.getElementById('conferences');
+            const selectedConferences = Array.from(conferencesSelect.selectedOptions).map(option => option.value);
+            
+            // Remove existing conference values and add the selected ones
+            formData.delete('conferences');
+            selectedConferences.forEach(conf => {
+                formData.append('conferences', conf);
+            });
+            
+            // Send request
+            fetch('/analyze', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+                
+                // Show summary
+                const summaryElem = document.getElementById('summary');
+                summaryElem.innerHTML = `Found <strong>${data.article_count}</strong> articles matching the criteria.`;
+                
+                if (data.conference_counts) {
+                    summaryElem.innerHTML += '<br><strong>Conference distribution:</strong><br>';
+                    const sortedConfs = Object.entries(data.conference_counts).sort((a, b) => b[1] - a[1]);
+                    sortedConfs.forEach(([conf, count]) => {
+                        summaryElem.innerHTML += `${conf}: ${count} papers<br>`;
+                    });
+                }
+                
+                // Show appropriate results based on analysis type
+                const analysisType = document.querySelector('input[name="analysis_type"]:checked').value;
+                const resultsTitle = document.getElementById('results-title');
+                const resultsTable = document.getElementById('results-table');
+                
+                if (analysisType === 'institutions') {
+                    showInstitutionsResults(data.institutions, resultsTitle, resultsTable);
+                } else {
+                    showAuthorsResults(data.authors, resultsTitle, resultsTable);
+                }
+                
+                // Create charts
+                if (data.bar_chart) {
+                    Plotly.newPlot('bar-chart', JSON.parse(data.bar_chart).data, JSON.parse(data.bar_chart).layout);
+                }
+                
+                if (data.trend_chart) {
+                    Plotly.newPlot('trend-chart', JSON.parse(data.trend_chart).data, JSON.parse(data.trend_chart).layout);
+                }
+                
+                // Show results section
+                document.getElementById('results').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('loading').style.display = 'none';
+                alert('An error occurred during analysis. Please try again.');
+            });
+        });
+        
+        function showInstitutionsResults(institutions, titleElem, tableElem) {
+            titleElem.textContent = 'Institution Analysis Results';
+            
+            if (!institutions || institutions.length === 0) {
+                tableElem.innerHTML = '<tr><td colspan="4" class="text-center">No institutions found with papers matching your criteria.</td></tr>';
+                return;
+            }
+            
+            // Get years range from the first institution
+            const years = Object.keys(institutions[0].years).map(Number).sort((a, b) => a - b);
+            
+            // Create header
+            let headerHTML = `
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Institution</th>
+                        <th>Total Papers</th>
+            `;
+            
+            years.forEach(year => {
+                headerHTML += `<th>${year}</th>`;
+            });
+            
+            headerHTML += `
+                        <th>Top Authors</th>
+                    </tr>
+                </thead>
+            `;
+            
+            // Create body
+            let bodyHTML = '<tbody>';
+            
+            institutions.forEach(inst => {
+                bodyHTML += `
+                    <tr>
+                        <td>${inst.rank}</td>
+                        <td>${inst.institution}</td>
+                        <td>${inst.total}</td>
+                `;
+                
+                years.forEach(year => {
+                    bodyHTML += `<td>${inst.years[year] || 0}</td>`;
+                });
+                
+                // Format top authors
+                const topAuthorsText = inst.top_authors
+                    .slice(0, 10)
+                    .map(a => `${a.name} (${a.count})`)
+                    .join(', ');
+                
+                bodyHTML += `<td>${topAuthorsText}</td></tr>`;
+            });
+            
+            bodyHTML += '</tbody>';
+            
+            // Set table content
+            tableElem.innerHTML = headerHTML + bodyHTML;
+        }
+        
+        function showAuthorsResults(authors, titleElem, tableElem) {
+            titleElem.textContent = 'Scholar Analysis Results';
+            
+            if (!authors || authors.length === 0) {
+                tableElem.innerHTML = '<tr><td colspan="4" class="text-center">No authors found with papers matching your criteria.</td></tr>';
+                return;
+            }
+            
+            // Get years range from the first author
+            const years = Object.keys(authors[0].years).map(Number).sort((a, b) => a - b);
+            
+            // Create header
+            let headerHTML = `
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Author</th>
+                        <th>Institution</th>
+                        <th>Total Papers</th>
+            `;
+            
+            years.forEach(year => {
+                headerHTML += `<th>${year}</th>`;
+            });
+            
+            headerHTML += `</tr></thead>`;
+            
+            // Create body
+            let bodyHTML = '<tbody>';
+            
+            authors.forEach(auth => {
+                bodyHTML += `
+                    <tr>
+                        <td>${auth.rank}</td>
+                        <td>${auth.author}</td>
+                        <td>${auth.institution}</td>
+                        <td>${auth.total}</td>
+                `;
+                
+                years.forEach(year => {
+                    bodyHTML += `<td>${auth.years[year] || 0}</td>`;
+                });
+                
+                bodyHTML += `</tr>`;
+            });
+            
+            bodyHTML += '</tbody>';
+            
+            // Set table content
+            tableElem.innerHTML = headerHTML + bodyHTML;
+        }
+    </script>
+</body>
+</html>
