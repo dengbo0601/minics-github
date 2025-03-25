@@ -317,10 +317,16 @@ class CSRankingsDashboard:
 
     def create_streamlit_app(self):
         """Create Streamlit application with a top-down layout for better mobile experience"""
+        # Set page configuration
         st.set_page_config(page_title="Academic Analysis Dashboard", layout="wide")
         
+        # App title
         st.title("Academic Publications Analysis Dashboard")
 
+        # Initialize session state if not already done
+        if 'start_analysis' not in st.session_state:
+            st.session_state.start_analysis = False
+            
         # Configuration section in a collapsible container at the top
         with st.expander("📋 Configuration", expanded=True):
             # Use columns to organize configuration options horizontally when possible
@@ -369,18 +375,26 @@ class CSRankingsDashboard:
             # Execute analysis button - centered and more prominent
             _, btn_col, _ = st.columns([1, 2, 1])
             with btn_col:
-                start_analysis = st.button("Start Analysis", type="primary", use_container_width=True)
-        
-        # Results section
-        if 'start_analysis' in locals() and start_analysis:
+                if st.button("Start Analysis", type="primary", use_container_width=True):
+                    st.session_state.start_analysis = True
+                    
+        # Results section - using session state to maintain state between reruns
+        if st.session_state.start_analysis:
             # Horizontal line to separate configuration from results
             st.markdown("---")
             
+            # Store these in session state to preserve between renders
+            if 'analysis_type' not in st.session_state:
+                st.session_state.analysis_type = analysis_type
+                st.session_state.start_year = start_year
+                st.session_state.end_year = end_year
+                st.session_state.selected_conferences = selected_conferences
+            
             # Filter articles
             filtered_articles = self.filter_articles(
-                selected_conferences,
-                start_year,
-                end_year
+                st.session_state.selected_conferences,
+                st.session_state.start_year,
+                st.session_state.end_year
             )
 
             if not filtered_articles:
@@ -389,7 +403,7 @@ class CSRankingsDashboard:
                 # This allows showing partial or empty results instead of stopping
 
             # Choose analysis method based on type
-            if analysis_type == "Top 100 Institutions":
+            if st.session_state.analysis_type == "Top 100 Institutions":
                 # Analyze top institutions - display all institutions with publications
                 top_institutions, inst_yearly_counts, inst_top_authors = self.analyze_top_institutions(
                     filtered_articles, top_n=None)
@@ -409,7 +423,7 @@ class CSRankingsDashboard:
                     }
 
                     # Add yearly paper counts
-                    for year in range(start_year, end_year + 1):
+                    for year in range(st.session_state.start_year, st.session_state.end_year + 1):
                         row[str(year)] = inst_yearly_counts[inst].get(year, 0)
 
                     # Add Top 10 authors
@@ -421,7 +435,7 @@ class CSRankingsDashboard:
                 # Even if we have no data, create an empty DataFrame with proper columns
                 if not inst_data:
                     columns = ["Rank", "Institution", "Total Papers", "Top 10 Authors"]
-                    columns.extend([str(year) for year in range(start_year, end_year + 1)])
+                    columns.extend([str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)])
                     df = pd.DataFrame(columns=columns)
                     st.info("No institutions found with papers matching your criteria.")
                 else:
@@ -441,7 +455,7 @@ class CSRankingsDashboard:
                             df,
                             x='Institution',
                             y='Total Papers',
-                            title=f"{start_year}-{end_year} US Institutions with Publications in Selected Conferences",
+                            title=f"{st.session_state.start_year}-{st.session_state.end_year} US Institutions with Publications in Selected Conferences",
                             labels={'Total Papers': 'Paper Count', 'Institution': 'Institution Name'}
                         )
                         st.plotly_chart(fig, use_container_width=True)
@@ -451,7 +465,7 @@ class CSRankingsDashboard:
                         if top_n > 0:
                             top5_df = df.head(top_n)
                             # Ensure data for all years
-                            year_columns = [str(year) for year in range(start_year, end_year + 1)]
+                            year_columns = [str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)]
                             yearly_trend = top5_df[year_columns]
 
                             # Create yearly data for each institution
@@ -472,7 +486,7 @@ class CSRankingsDashboard:
                                 x='Year',
                                 y='Papers',
                                 color='Institution',
-                                title=f"{start_year}-{end_year} Top {top_n} Institutions Yearly Paper Trends",
+                                title=f"{st.session_state.start_year}-{st.session_state.end_year} Top {top_n} Institutions Yearly Paper Trends",
                                 markers=True
                             )
                             # Improve line visibility and ensure x-axis shows all years
@@ -502,7 +516,7 @@ class CSRankingsDashboard:
                     }
 
                     # Add yearly paper counts
-                    for year in range(start_year, end_year + 1):
+                    for year in range(st.session_state.start_year, st.session_state.end_year + 1):
                         row[str(year)] = author_yearly_counts[author].get(year, 0)
 
                     author_data.append(row)
@@ -510,7 +524,7 @@ class CSRankingsDashboard:
                 # Even if we have no data, create an empty DataFrame with proper columns
                 if not author_data:
                     columns = ["Rank", "Author", "Institution", "Total Papers"]
-                    columns.extend([str(year) for year in range(start_year, end_year + 1)])
+                    columns.extend([str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)])
                     df = pd.DataFrame(columns=columns)
                     st.info("No authors found with papers matching your criteria.")
                 else:
@@ -530,7 +544,7 @@ class CSRankingsDashboard:
                             df,
                             x='Author',
                             y='Total Papers',
-                            title=f"{start_year}-{end_year} US Authors with Publications in Selected Conferences",
+                            title=f"{st.session_state.start_year}-{st.session_state.end_year} US Authors with Publications in Selected Conferences",
                             labels={'Total Papers': 'Paper Count', 'Author': 'Author Name'}
                         )
                         st.plotly_chart(fig, use_container_width=True)
@@ -540,7 +554,7 @@ class CSRankingsDashboard:
                         if top_n > 0:
                             top5_df = df.head(top_n)
                             # Ensure data for all years
-                            year_columns = [str(year) for year in range(start_year, end_year + 1)]
+                            year_columns = [str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)]
 
                             # Create yearly data for each author
                             trend_data = []
@@ -560,7 +574,7 @@ class CSRankingsDashboard:
                                 x='Year',
                                 y='Papers',
                                 color='Author',
-                                title=f"{start_year}-{end_year} Top {top_n} Scholars Yearly Paper Trends",
+                                title=f"{st.session_state.start_year}-{st.session_state.end_year} Top {top_n} Scholars Yearly Paper Trends",
                                 markers=True
                             )
                             # Improve line visibility and ensure x-axis shows all years
