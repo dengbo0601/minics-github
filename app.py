@@ -1,28 +1,27 @@
-from flask import Flask, render_template, request, jsonify
+#!/usr/bin/env python3
+import streamlit as st
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objs as go
+from collections import defaultdict
 import json
 import csv
 import os
-from collections import defaultdict
 from pathlib import Path
-import plotly
-import plotly.express as px
 
-app = Flask(__name__)
 
 class CSRankingsDashboard:
     def __init__(self, root_dir=None):
-        """
-        Initialize the dashboard with a configurable root directory
-        """
+        self.data_version = "20250325"  # 新增版本控制
         if root_dir is None:
-            # Default to the directory where this script is located
             self.root_dir = Path(__file__).parent.absolute()
         else:
             self.root_dir = Path(root_dir)
-
+            
         self.load_data()
         self.conf_aliases = self.get_conference_aliases()
+
+    @st.cache_data(ttl=3600, show_spinner=False, hash_funcs={Path: lambda _: None})  # 新增缓存控制
 
     def load_data(self):
         """Load necessary data files"""
@@ -32,7 +31,7 @@ class CSRankingsDashboard:
             with open(articles_path, "r") as f:
                 self.articles = json.load(f)
         except FileNotFoundError:
-            print(f"Could not find articles.json at {articles_path}")
+            st.error(f"Could not find articles.json at {articles_path}")
             self.articles = []
 
         # Load non-US institution information
@@ -45,7 +44,8 @@ class CSRankingsDashboard:
                     if row["countryabbrv"].lower() != "us":
                         self.non_us_institutions.add(row["institution"])
         else:
-            print(f"Country info file not found at {country_info_path}. All institutions will be treated as US institutions.")
+            st.warning(
+                f"Country info file not found at {country_info_path}. All institutions will be treated as US institutions.")
 
         # Load author-institution mapping
         self.author_institutions = {}
@@ -58,12 +58,12 @@ class CSRankingsDashboard:
                     self.author_institutions[row["name"]] = row["affiliation"]
                     all_institutions.add(row["affiliation"])
         except FileNotFoundError:
-            print(f"Could not find faculty-affiliations.csv at {faculty_path}")
+            st.error(f"Could not find faculty-affiliations.csv at {faculty_path}")
 
         # Default assumption: institutions not in the non-US list are US institutions
         self.us_institutions = all_institutions - self.non_us_institutions
 
-       def get_conference_aliases(self):
+    def get_conference_aliases(self):
         """Return a mapping of conference aliases to standard names"""
         # Build conference alias mapping based on CSRankings.py definitions
         return {
@@ -311,6 +311,285 @@ class CSRankingsDashboard:
         }
         return areas
 
+    def create_streamlit_app(self):
+        def create_streamlit_app(self):
+        """创建带缓存控制的Streamlit应用"""
+        try:  # 新增异常处理
+            # 清理旧版session状态
+            for key in list(st.session_state.keys()):
+                if key != 'data_version':
+                    del st.session_state[key]
+                    
+            # 设置带版本控制的页面配置
+            st.set_page_config(
+                page_title="Academic Analysis Dashboard",
+                layout="wide",
+                page_icon="📊",
+                menu_items={
+                    'About': f"Version: {self.data_version}"  # 版本标识
+                }
+            )
+            
+        # Configuration section in a collapsible container at the top
+        with st.expander("📋 Configuration", expanded=True):
+            # Use columns to organize configuration options horizontally when possible
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Analysis type selection
+                analysis_type = st.radio(
+                    "Select analysis type",
+                    ["Top 100 Scholars", "Top 100 Institutions"],
+                    help="Select the type of entity you want to analyze"
+                )
+                
+                # Year selection
+                start_year, end_year = st.slider(
+                    "Select year range",
+                    min_value=2010,
+                    max_value=2025,
+                    value=(2020, 2025),
+                    help="Select the year range for your analysis"
+                )
+            
+            with col2:
+                # Get areas and conferences information
+                areas_info = self.get_areas_and_conferences()
+                
+                # Research area multi-select
+                selected_top_level_areas = st.multiselect(
+                    "Select research areas",
+                    list(areas_info.keys()),
+                    help="Select research areas you're interested in"
+                )
+                
+                # Update available conferences based on selected areas
+                all_available_conferences = []
+                if selected_top_level_areas:
+                    for area in selected_top_level_areas:
+                        all_available_conferences.extend(areas_info[area]["conferences"])
+                
+                selected_conferences = st.multiselect(
+                    "Select conferences",
+                    list(set(all_available_conferences)),
+                    help="Select specific conferences you want to analyze"
+                )
+            
+            # Execute analysis button - centered and more prominent
+            _, btn_col, _ = st.columns([1, 2, 1])
+            with btn_col:
+                if st.button("Start Analysis", type="primary", use_container_width=True):
+                    st.session_state.start_analysis = True
+                    
+        # Results section - using session state to maintain state between reruns
+        if st.session_state.start_analysis:
+            # Horizontal line to separate configuration from results
+            st.markdown("---")
+            
+            # Store these in session state to preserve between renders
+            if 'analysis_type' not in st.session_state:
+                st.session_state.analysis_type = analysis_type
+                st.session_state.start_year = start_year
+                st.session_state.end_year = end_year
+                st.session_state.selected_conferences = selected_conferences
+            
+            # Filter articles
+            filtered_articles = self.filter_articles(
+                st.session_state.selected_conferences,
+                st.session_state.start_year,
+                st.session_state.end_year
+            )
+
+            if not filtered_articles:
+                st.warning("No articles found matching your criteria. We'll still try to display any available data.")
+                # Continue execution even if no articles found
+                # This allows showing partial or empty results instead of stopping
+
+            # Choose analysis method based on type
+            if st.session_state.analysis_type == "Top 100 Institutions":
+                # Analyze top institutions - display all institutions with publications
+                top_institutions, inst_yearly_counts, inst_top_authors = self.analyze_top_institutions(
+                    filtered_articles, top_n=None)
+
+                st.write(f"Found {len(top_institutions)} institutions with publications meeting the criteria")
+
+                # Create dataframe for display - even if empty, we'll create a structure
+                inst_data = []
+                # Limit to displaying at most 100 institutions
+                display_institutions = top_institutions[:100]
+
+                for rank, (inst, total) in enumerate(display_institutions, 1):
+                    row = {
+                        "Rank": rank,
+                        "Institution": inst,
+                        "Total Papers": total
+                    }
+
+                    # Add yearly paper counts
+                    for year in range(st.session_state.start_year, st.session_state.end_year + 1):
+                        row[str(year)] = inst_yearly_counts[inst].get(year, 0)
+
+                    # Add Top 10 authors
+                    top_10_authors = inst_top_authors[inst]
+                    row["Top 10 Authors"] = ", ".join([f"{author}({count})" for author, count in top_10_authors])
+
+                    inst_data.append(row)
+
+                # Even if we have no data, create an empty DataFrame with proper columns
+                if not inst_data:
+                    columns = ["Rank", "Institution", "Total Papers", "Top 10 Authors"]
+                    columns.extend([str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)])
+                    df = pd.DataFrame(columns=columns)
+                    st.info("No institutions found with papers matching your criteria.")
+                else:
+                    df = pd.DataFrame(inst_data)
+
+                    # Display results
+                    st.header("Institution Analysis Results")
+
+                    # Institution paper count table
+                    with st.expander(f"Institutions with Publications ({len(df)} found)", expanded=True):
+                        st.dataframe(df.set_index('Rank'), use_container_width=True)
+
+                    # Only display charts if we have data
+                    if not df.empty:
+                        # Institution paper count bar chart
+                        fig = px.bar(
+                            df,
+                            x='Institution',
+                            y='Total Papers',
+                            title=f"{st.session_state.start_year}-{st.session_state.end_year} US Institutions with Publications in Selected Conferences",
+                            labels={'Total Papers': 'Paper Count', 'Institution': 'Institution Name'}
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+
+                        # Yearly trends - only top 5 institutions or all if less than 5
+                        top_n = min(5, len(df))
+                        if top_n > 0:
+                            top5_df = df.head(top_n)
+                            # Ensure data for all years
+                            year_columns = [str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)]
+                            yearly_trend = top5_df[year_columns]
+
+                            # Create yearly data for each institution
+                            trend_data = []
+                            for idx, row in top5_df.iterrows():
+                                institution = row['Institution']
+                                for year in year_columns:
+                                    trend_data.append({
+                                        'Institution': institution,
+                                        'Year': year,
+                                        'Papers': row[year]
+                                    })
+
+                            trend_df = pd.DataFrame(trend_data)
+
+                            trend_fig = px.line(
+                                trend_df,
+                                x='Year',
+                                y='Papers',
+                                color='Institution',
+                                title=f"{st.session_state.start_year}-{st.session_state.end_year} Top {top_n} Institutions Yearly Paper Trends",
+                                markers=True
+                            )
+                            # Improve line visibility and ensure x-axis shows all years
+                            trend_fig.update_traces(line=dict(width=3))
+                            trend_fig.update_xaxes(tickvals=year_columns)
+                            st.plotly_chart(trend_fig, use_container_width=True)
+                        else:
+                            st.info("No trend data available for visualization.")
+
+            else:  # Top 100 Scholars
+                # Analyze top authors - display all scholars with publications
+                top_authors, author_yearly_counts = self.analyze_top_authors(filtered_articles, top_n=None)
+
+                st.write(f"Found {len(top_authors)} scholars with publications meeting the criteria")
+
+                # Create dataframe for display - even if empty, we'll create a structure
+                author_data = []
+                # Limit to displaying at most 100 scholars
+                display_authors = top_authors[:100]
+
+                for rank, (author, total) in enumerate(display_authors, 1):
+                    row = {
+                        "Rank": rank,
+                        "Author": author,
+                        "Institution": self.author_institutions.get(author, "Unknown"),
+                        "Total Papers": total
+                    }
+
+                    # Add yearly paper counts
+                    for year in range(st.session_state.start_year, st.session_state.end_year + 1):
+                        row[str(year)] = author_yearly_counts[author].get(year, 0)
+
+                    author_data.append(row)
+
+                # Even if we have no data, create an empty DataFrame with proper columns
+                if not author_data:
+                    columns = ["Rank", "Author", "Institution", "Total Papers"]
+                    columns.extend([str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)])
+                    df = pd.DataFrame(columns=columns)
+                    st.info("No authors found with papers matching your criteria.")
+                else:
+                    df = pd.DataFrame(author_data)
+
+                    # Display results
+                    st.header("Scholar Analysis Results")
+
+                    # Author paper count table
+                    with st.expander(f"Scholars with Publications ({len(df)} found)", expanded=True):
+                        st.dataframe(df.set_index('Rank'), use_container_width=True)
+
+                    # Only display charts if we have data
+                    if not df.empty:
+                        # Author paper count bar chart
+                        fig = px.bar(
+                            df,
+                            x='Author',
+                            y='Total Papers',
+                            title=f"{st.session_state.start_year}-{st.session_state.end_year} US Authors with Publications in Selected Conferences",
+                            labels={'Total Papers': 'Paper Count', 'Author': 'Author Name'}
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+
+                        # Yearly trends - only top 5 authors or all if less than 5
+                        top_n = min(5, len(df))
+                        if top_n > 0:
+                            top5_df = df.head(top_n)
+                            # Ensure data for all years
+                            year_columns = [str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)]
+
+                            # Create yearly data for each author
+                            trend_data = []
+                            for idx, row in top5_df.iterrows():
+                                author = row['Author']
+                                for year in year_columns:
+                                    trend_data.append({
+                                        'Author': author,
+                                        'Year': year,
+                                        'Papers': row[year]
+                                    })
+
+                            trend_df = pd.DataFrame(trend_data)
+
+                            trend_fig = px.line(
+                                trend_df,
+                                x='Year',
+                                y='Papers',
+                                color='Author',
+                                title=f"{st.session_state.start_year}-{st.session_state.end_year} Top {top_n} Scholars Yearly Paper Trends",
+                                markers=True
+                            )
+                            # Improve line visibility and ensure x-axis shows all years
+                            trend_fig.update_traces(line=dict(width=3))
+                            trend_fig.update_xaxes(tickvals=year_columns)
+                            st.plotly_chart(trend_fig, use_container_width=True)
+                        else:
+                            st.info("No trend data available for visualization.")
+            except Exception as e:
+            st.error(f"初始化失败，请强制刷新页面 (Ctrl+F5)。错误信息: {str(e)}")
+            st.stop()
+            
     def filter_articles(self, selected_conferences, start_year, end_year):
         """Filter articles based on criteria"""
         filtered_articles = []
@@ -352,10 +631,31 @@ class CSRankingsDashboard:
 
                 conference_counts[conf_for_counting] += 1
 
-        return filtered_articles, conference_counts
+        # Print number of matching articles and conference distribution
+        st.write(f"Found {len(filtered_articles)} articles matching the criteria")
+        if filtered_articles:
+            st.write("Conference distribution:")
+            # Sort conferences by count
+            sorted_confs = sorted(conference_counts.items(), key=lambda x: x[1], reverse=True)
+            for conf, count in sorted_confs:
+                st.write(f"  - {conf}: {count} papers")
+
+            # Show alias usage
+            alias_usage = defaultdict(int)
+            for article in filtered_articles:
+                if "original_conf" in article and article["original_conf"] != article.get("conf"):
+                    alias_usage[f"{article['original_conf']} -> {article.get('conf')}"] += 1
+
+            if alias_usage:
+                st.write("Conference alias usage:")
+                for alias_map, count in alias_usage.items():
+                    st.write(f"  - {alias_map}: {count} papers")
+
+        return filtered_articles
 
     def analyze_top_authors(self, filtered_articles, top_n=100):
         """Analyze top authors"""
+        # If top_n is None, display all authors with publications
         author_counts = defaultdict(int)
         author_yearly_counts = defaultdict(lambda: defaultdict(int))
 
@@ -379,6 +679,7 @@ class CSRankingsDashboard:
 
     def analyze_top_institutions(self, filtered_articles, top_n=50):
         """Analyze top institutions"""
+        # If top_n is None, display all institutions with publications
         institution_counts = defaultdict(int)
         institution_yearly_counts = defaultdict(lambda: defaultdict(int))
         institution_top_authors = defaultdict(lambda: defaultdict(int))
@@ -410,159 +711,23 @@ class CSRankingsDashboard:
 
         return top_institutions, institution_yearly_counts, institution_top10_authors
 
-# Create the dashboard instance
-dashboard = CSRankingsDashboard()
 
-@app.route('/')
-def index():
-    # Get areas and conferences information
-    areas_info = dashboard.get_areas_and_conferences()
+def main():
+    # 在页面上添加缓存提示
+    st.sidebar.markdown("""
+    **遇到显示问题？**  
+    ▸ 强制刷新 (Ctrl+F5/Cmd+Shift+R)  
+    ▸ [清除浏览器缓存](chrome://settings/clearBrowserData)  
+    ▸ 使用隐私模式访问
+    """)
     
-    return render_template('index.html', 
-                          areas=areas_info,
-                          min_year=2010,
-                          max_year=2025)
+    data_dir = os.environ.get("CSRANKINGS_DATA_DIR", None)
+    dashboard = CSRankingsDashboard(data_dir)
+    dashboard.create_streamlit_app()
 
-@app.route('/analyze', methods=['POST'])
-def analyze():
-    # Get form data
-    data = request.form
-    analysis_type = data.get('analysis_type')
-    start_year = int(data.get('start_year', 2020))
-    end_year = int(data.get('end_year', 2025))
-    selected_conferences = data.getlist('conferences')
-    
-    # Filter articles
-    filtered_articles, conference_counts = dashboard.filter_articles(
-        selected_conferences, start_year, end_year
-    )
-    
-    # Prepare response data
-    result = {
-        'article_count': len(filtered_articles),
-        'conference_counts': dict(conference_counts)
-    }
-    
-    # Analyze based on selected type
-    if analysis_type == 'institutions':
-        top_institutions, inst_yearly_counts, inst_top_authors = dashboard.analyze_top_institutions(
-            filtered_articles, top_n=100
-        )
-        
-        # Format institutions data
-        institutions_data = []
-        for rank, (inst, total) in enumerate(top_institutions[:100], 1):
-            row = {
-                'rank': rank,
-                'institution': inst,
-                'total': total,
-                'years': {},
-                'top_authors': []
-            }
-            
-            # Yearly counts
-            for year in range(start_year, end_year + 1):
-                row['years'][year] = inst_yearly_counts[inst].get(year, 0)
-                
-            # Top authors
-            for author, count in inst_top_authors[inst]:
-                row['top_authors'].append({'name': author, 'count': count})
-                
-            institutions_data.append(row)
-            
-        result['institutions'] = institutions_data
-        
-        # Create bar chart for top institutions
-        if institutions_data:
-            top_20_inst = institutions_data[:20]  # Limit to top 20 for readability
-            fig = px.bar(
-                [{'Institution': item['institution'], 'Papers': item['total']} for item in top_20_inst],
-                x='Institution', 
-                y='Papers',
-                title=f"Top Institutions ({start_year}-{end_year})"
-            )
-            result['bar_chart'] = plotly.io.to_json(fig)
-            
-            # Create line chart for top 5 institutions
-            if len(institutions_data) >= 5:
-                top_5_inst = institutions_data[:5]
-                trend_data = []
-                for inst in top_5_inst:
-                    for year, count in inst['years'].items():
-                        trend_data.append({
-                            'Institution': inst['institution'],
-                            'Year': str(year),
-                            'Papers': count
-                        })
-                
-                trend_fig = px.line(
-                    trend_data,
-                    x='Year',
-                    y='Papers',
-                    color='Institution',
-                    title=f"Yearly Trends ({start_year}-{end_year})",
-                    markers=True
-                )
-                result['trend_chart'] = plotly.io.to_json(trend_fig)
-    
-    else:  # authors analysis
-        top_authors, author_yearly_counts = dashboard.analyze_top_authors(
-            filtered_articles, top_n=100
-        )
-        
-        # Format authors data
-        authors_data = []
-        for rank, (author, total) in enumerate(top_authors[:100], 1):
-            row = {
-                'rank': rank,
-                'author': author,
-                'institution': dashboard.author_institutions.get(author, 'Unknown'),
-                'total': total,
-                'years': {}
-            }
-            
-            # Yearly counts
-            for year in range(start_year, end_year + 1):
-                row['years'][year] = author_yearly_counts[author].get(year, 0)
-                
-            authors_data.append(row)
-            
-        result['authors'] = authors_data
-        
-        # Create bar chart for top authors
-        if authors_data:
-            top_20_auth = authors_data[:20]  # Limit to top 20 for readability
-            fig = px.bar(
-                [{'Author': item['author'], 'Papers': item['total']} for item in top_20_auth],
-                x='Author', 
-                y='Papers',
-                title=f"Top Authors ({start_year}-{end_year})"
-            )
-            result['bar_chart'] = plotly.io.to_json(fig)
-            
-            # Create line chart for top 5 authors
-            if len(authors_data) >= 5:
-                top_5_auth = authors_data[:5]
-                trend_data = []
-                for auth in top_5_auth:
-                    for year, count in auth['years'].items():
-                        trend_data.append({
-                            'Author': auth['author'],
-                            'Year': str(year),
-                            'Papers': count
-                        })
-                
-                trend_fig = px.line(
-                    trend_data,
-                    x='Year',
-                    y='Papers',
-                    color='Author',
-                    title=f"Yearly Trends ({start_year}-{end_year})",
-                    markers=True
-                )
-                result['trend_chart'] = plotly.io.to_json(trend_fig)
-    
-    return jsonify(result)
+if __name__ == "__main__":
+    main()
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+
+if __name__ == "__main__":
+    main()
