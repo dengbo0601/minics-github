@@ -12,16 +12,20 @@ from pathlib import Path
 
 class CSRankingsDashboard:
     def __init__(self, root_dir=None):
-        self.data_version = "20250325"  # 新增版本控制
+        """
+        Initialize the dashboard with a configurable root directory
+
+        Args:
+            root_dir: Path to CSRankings data directory. If None, uses the directory of this script.
+        """
         if root_dir is None:
+            # Default to the directory where this script is located
             self.root_dir = Path(__file__).parent.absolute()
         else:
             self.root_dir = Path(root_dir)
-            
+
         self.load_data()
         self.conf_aliases = self.get_conference_aliases()
-
-    @st.cache_data(ttl=3600, show_spinner=False, hash_funcs={Path: lambda _: None})  # 新增缓存控制
 
     def load_data(self):
         """Load necessary data files"""
@@ -312,23 +316,16 @@ class CSRankingsDashboard:
         return areas
 
     def create_streamlit_app(self):
-        def create_streamlit_app(self):
-        """创建带缓存控制的Streamlit应用"""
-        try:  # 新增异常处理
-            # 清理旧版session状态
-            for key in list(st.session_state.keys()):
-                if key != 'data_version':
-                    del st.session_state[key]
-                    
-            # 设置带版本控制的页面配置
-            st.set_page_config(
-                page_title="Academic Analysis Dashboard",
-                layout="wide",
-                page_icon="📊",
-                menu_items={
-                    'About': f"Version: {self.data_version}"  # 版本标识
-                }
-            )
+        """Create Streamlit application with a top-down layout for better mobile experience"""
+        # Set page configuration
+        st.set_page_config(page_title="Academic Analysis Dashboard", layout="wide")
+        
+        # App title
+        st.title("Academic Publications Analysis Dashboard")
+
+        # Initialize session state if not already done
+        if 'start_analysis' not in st.session_state:
+            st.session_state.start_analysis = False
             
         # Configuration section in a collapsible container at the top
         with st.expander("📋 Configuration", expanded=True):
@@ -586,10 +583,7 @@ class CSRankingsDashboard:
                             st.plotly_chart(trend_fig, use_container_width=True)
                         else:
                             st.info("No trend data available for visualization.")
-            except Exception as e:
-            st.error(f"初始化失败，请强制刷新页面 (Ctrl+F5)。错误信息: {str(e)}")
-            st.stop()
-            
+
     def filter_articles(self, selected_conferences, start_year, end_year):
         """Filter articles based on criteria"""
         filtered_articles = []
@@ -713,20 +707,10 @@ class CSRankingsDashboard:
 
 
 def main():
-    # 在页面上添加缓存提示
-    st.sidebar.markdown("""
-    **遇到显示问题？**  
-    ▸ 强制刷新 (Ctrl+F5/Cmd+Shift+R)  
-    ▸ [清除浏览器缓存](chrome://settings/clearBrowserData)  
-    ▸ 使用隐私模式访问
-    """)
-    
+    # Use current directory by default, can be overridden with environment variables
     data_dir = os.environ.get("CSRANKINGS_DATA_DIR", None)
     dashboard = CSRankingsDashboard(data_dir)
     dashboard.create_streamlit_app()
-
-if __name__ == "__main__":
-    main()
 
 
 if __name__ == "__main__":
