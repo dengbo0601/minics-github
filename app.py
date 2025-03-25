@@ -68,14 +68,14 @@ class CSRankingsDashboard:
         self.us_institutions = all_institutions - self.non_us_institutions
 
     def get_conference_aliases(self):
-        """返回会议别名到标准名称的映射"""
-        # 基于CSRankings.py的定义构建会议别名映射
+        """Return a mapping of conference aliases to standard names"""
+        # Build conference alias mapping based on CSRankings.py definitions
         return {
-            # VLDB别名
+            # VLDB aliases
             "Proc. VLDB Endow.": "VLDB",
             "PVLDB": "VLDB",
 
-            # ACL别名
+            # ACL aliases
             "ACL (1)": "ACL",
             "ACL (2)": "ACL",
             "ACL/IJCNLP": "ACL",
@@ -83,12 +83,12 @@ class CSRankingsDashboard:
             "ACL/IJCNLP (2)": "ACL",
             "COLING-ACL": "ACL",
 
-            # CAV别名
+            # CAV aliases
             "CAV (1)": "CAV",
             "CAV (2)": "CAV",
             "CAV (3)": "CAV",
 
-            # CRYPTO别名
+            # CRYPTO aliases
             "CRYPTO (1)": "CRYPTO",
             "CRYPTO (2)": "CRYPTO",
             "CRYPTO (3)": "CRYPTO",
@@ -100,7 +100,7 @@ class CSRankingsDashboard:
             "CRYPTO (9)": "CRYPTO",
             "CRYPTO (10)": "CRYPTO",
 
-            # ECCV别名
+            # ECCV aliases
             "ECCV (1)": "ECCV",
             "ECCV (2)": "ECCV",
             "ECCV (3)": "ECCV",
@@ -141,84 +141,84 @@ class CSRankingsDashboard:
             "ECCV (38)": "ECCV",
             "ECCV (39)": "ECCV",
 
-            # EMSOFT别名
+            # EMSOFT aliases
             "ACM Trans. Embedded Comput. Syst.": "EMSOFT",
             "ACM Trans. Embed. Comput. Syst.": "EMSOFT",
             "IEEE Trans. Comput. Aided Des. Integr. Circuits Syst.": "EMSOFT",
 
-            # EUROCRYPT别名
+            # EUROCRYPT aliases
             "EUROCRYPT (1)": "EUROCRYPT",
             "EUROCRYPT (2)": "EUROCRYPT",
             "EUROCRYPT (3)": "EUROCRYPT",
             "EUROCRYPT (4)": "EUROCRYPT",
             "EUROCRYPT (5)": "EUROCRYPT",
 
-            # Eurographics别名
+            # Eurographics aliases
             "Comput. Graph. Forum": "Eurographics",
             "EUROGRAPHICS": "Eurographics",
 
-            # FSE别名
+            # FSE aliases
             "SIGSOFT FSE": "FSE",
             "ESEC/SIGSOFT FSE": "FSE",
             "Proc. ACM Softw. Eng.": "FSE",
 
-            # IEEE VR别名
+            # IEEE VR aliases
             "VR": "IEEE VR",
 
-            # ISMB别名
+            # ISMB aliases
             "Bioinformatics": "ISMB",
             "Bioinform.": "ISMB",
             "ISMB/ECCB (Supplement of Bioinformatics)": "ISMB",
             "Bioinformatics [ISMB/ECCB]": "ISMB",
             "ISMB (Supplement of Bioinformatics)": "ISMB",
 
-            # NAACL别名
+            # NAACL aliases
             "HLT-NAACL": "NAACL",
             "NAACL-HLT": "NAACL",
             "NAACL-HLT (1)": "NAACL",
 
-            # OOPSLA别名
+            # OOPSLA aliases
             "OOPSLA/ECOOP": "OOPSLA",
             "OOPSLA1": "OOPSLA",
             "OOPSLA2": "OOPSLA",
-            "PACMPL": "OOPSLA",  # 这个可能需要更精确的处理
-            "Proc. ACM Program. Lang.": "OOPSLA",  # 需要更精确的处理
+            "PACMPL": "OOPSLA",  # This may need more precise handling
+            "Proc. ACM Program. Lang.": "OOPSLA",  # Needs more precise handling
 
-            # Oakland别名
+            # Oakland aliases
             "IEEE Symposium on Security and Privacy": "Oakland",
             "SP": "Oakland",
             "S&P": "Oakland",
 
-            # PETS别名
+            # PETS aliases
             "PoPETs": "PETS",
             "Privacy Enhancing Technologies": "PETS",
             "Proc. Priv. Enhancing Technol.": "PETS",
 
-            # RSS别名
+            # RSS aliases
             "Robotics: Science and Systems": "RSS",
 
-            # SIGCSE别名
+            # SIGCSE aliases
             "SIGCSE (1)": "SIGCSE",
 
-            # SIGMETRICS别名
+            # SIGMETRICS aliases
             "SIGMETRICS/Performance": "SIGMETRICS",
             "POMACS": "SIGMETRICS",
             "Proc. ACM Meas. Anal. Comput. Syst.": "SIGMETRICS",
 
-            # SIGMOD别名
+            # SIGMOD aliases
             "SIGMOD Conference": "SIGMOD",
             "Proc. ACM Manag. Data": "SIGMOD",
 
-            # USENIX Security别名
+            # USENIX Security aliases
             "USENIX Security Symposium": "USENIX Security",
 
-            # Ubicomp别名
+            # Ubicomp aliases
             "UbiComp": "Ubicomp",
             "IMWUT": "Ubicomp",
             "Pervasive": "Ubicomp",
             "Proc. ACM Interact. Mob. Wearable Ubiquitous Technol.": "Ubicomp",
 
-            # VIS别名
+            # VIS aliases
             "IEEE Visualization": "VIS",
             "IEEE Trans. Vis. Comput. Graph.": "VIS"
         }
@@ -316,91 +316,66 @@ class CSRankingsDashboard:
         return areas
 
     def create_streamlit_app(self):
-        """Create Streamlit application"""
+        """Create Streamlit application with a top-down layout for better mobile experience"""
         st.set_page_config(page_title="Academic Analysis Dashboard", layout="wide")
-        # 移动设备检测和提示消息（同时支持明亮模式和暗色模式）
-        st.markdown("""
-        <style>
-        /* 基础样式 */
-        .mobile-message {
-            display: none;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            font-weight: 500;
-        }
         
-        /* 明亮模式样式 */
-        .mobile-message {
-            background-color: #e6f2ff;
-            border-left: 4px solid #1E90FF;
-            color: #0a4f8f;
-        }
-        
-        /* 暗色模式样式 */
-        body[data-theme="dark"] .mobile-message {
-            background-color: #1e3a5f;
-            border-left: 4px solid #4da6ff;
-            color: #e6f2ff;
-        }
-        
-        /* 仅在移动设备上显示 */
-        @media (max-width: 768px) {
-            .mobile-message {
-                display: block;
-            }
-        }
-        </style>
-        <div class="mobile-message">
-            <span style="font-size: 1.1em;">📱手机使用:</span> 请点击<b>左上角的 ">" 按钮</b>进入配置页面。
-        </div>
-        """, unsafe_allow_html=True)
-    
         st.title("Academic Publications Analysis Dashboard")
 
-        # Sidebar configuration
-        st.sidebar.header("Configuration")
-
-        # Get areas and conferences information
-        areas_info = self.get_areas_and_conferences()
-
-        # Analysis type selection
-        analysis_type = st.sidebar.radio(
-            "Select analysis type",
-            ["Top 100 Scholars","Top 100 Institutions"],
-            help="Select the type of entity you want to analyze"
-        )
-
-        # Research area multi-select
-        selected_top_level_areas = st.sidebar.multiselect(
-            "Select research areas",
-            list(areas_info.keys()),
-            help="Select research areas you're interested in"
-        )
-
-        # Update available conferences based on selected areas
-        all_available_conferences = []
-        if selected_top_level_areas:
-            for area in selected_top_level_areas:
-                all_available_conferences.extend(areas_info[area]["conferences"])
-
-        selected_conferences = st.sidebar.multiselect(
-            "Select conferences",
-            list(set(all_available_conferences)),
-            help="Select specific conferences you want to analyze"
-        )
-
-        # Year selection
-        start_year, end_year = st.sidebar.slider(
-            "Select year range",
-            min_value=2010,
-            max_value=2025,
-            value=(2020, 2025),
-            help="Select the year range for your analysis"
-        )
-
-        # Execute analysis button
-        if st.sidebar.button("Start Analysis", type="primary"):
+        # Configuration section in a collapsible container at the top
+        with st.expander("📋 Configuration", expanded=True):
+            # Use columns to organize configuration options horizontally when possible
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Analysis type selection
+                analysis_type = st.radio(
+                    "Select analysis type",
+                    ["Top 100 Scholars", "Top 100 Institutions"],
+                    help="Select the type of entity you want to analyze"
+                )
+                
+                # Year selection
+                start_year, end_year = st.slider(
+                    "Select year range",
+                    min_value=2010,
+                    max_value=2025,
+                    value=(2020, 2025),
+                    help="Select the year range for your analysis"
+                )
+            
+            with col2:
+                # Get areas and conferences information
+                areas_info = self.get_areas_and_conferences()
+                
+                # Research area multi-select
+                selected_top_level_areas = st.multiselect(
+                    "Select research areas",
+                    list(areas_info.keys()),
+                    help="Select research areas you're interested in"
+                )
+                
+                # Update available conferences based on selected areas
+                all_available_conferences = []
+                if selected_top_level_areas:
+                    for area in selected_top_level_areas:
+                        all_available_conferences.extend(areas_info[area]["conferences"])
+                
+                selected_conferences = st.multiselect(
+                    "Select conferences",
+                    list(set(all_available_conferences)),
+                    help="Select specific conferences you want to analyze"
+                )
+            
+            # Execute analysis button - centered and more prominent
+            _, btn_col, _ = st.columns([1, 2, 1])
+            with btn_col:
+                start_analysis = st.button("Start Analysis", type="primary", use_container_width=True)
+        
+        # Results section
+        if 'start_analysis' in locals() and start_analysis:
+            # Horizontal line to separate configuration from results
+            st.markdown("---")
+            
             # Filter articles
             filtered_articles = self.filter_articles(
                 selected_conferences,
@@ -415,15 +390,15 @@ class CSRankingsDashboard:
 
             # Choose analysis method based on type
             if analysis_type == "Top 100 Institutions":
-                # Analyze top institutions - 不限制为50个，显示所有有发表的机构
+                # Analyze top institutions - display all institutions with publications
                 top_institutions, inst_yearly_counts, inst_top_authors = self.analyze_top_institutions(
                     filtered_articles, top_n=None)
 
-                st.write(f"发现 {len(top_institutions)} 个具有符合条件发表的机构")
+                st.write(f"Found {len(top_institutions)} institutions with publications meeting the criteria")
 
                 # Create dataframe for display - even if empty, we'll create a structure
                 inst_data = []
-                # 限制最多显示100个机构
+                # Limit to displaying at most 100 institutions
                 display_institutions = top_institutions[:100]
 
                 for rank, (inst, total) in enumerate(display_institutions, 1):
@@ -475,11 +450,11 @@ class CSRankingsDashboard:
                         top_n = min(5, len(df))
                         if top_n > 0:
                             top5_df = df.head(top_n)
-                            # 确保所有年份都有数据
+                            # Ensure data for all years
                             year_columns = [str(year) for year in range(start_year, end_year + 1)]
                             yearly_trend = top5_df[year_columns]
 
-                            # 为每个机构创建每年的数据
+                            # Create yearly data for each institution
                             trend_data = []
                             for idx, row in top5_df.iterrows():
                                 institution = row['Institution']
@@ -508,14 +483,14 @@ class CSRankingsDashboard:
                             st.info("No trend data available for visualization.")
 
             else:  # Top 100 Scholars
-                # Analyze top authors - 不限制为100个，显示所有有发表的学者
+                # Analyze top authors - display all scholars with publications
                 top_authors, author_yearly_counts = self.analyze_top_authors(filtered_articles, top_n=None)
 
-                #st.write(f"发现 {len(top_authors)} 位具有符合条件发表的学者")
+                st.write(f"Found {len(top_authors)} scholars with publications meeting the criteria")
 
                 # Create dataframe for display - even if empty, we'll create a structure
                 author_data = []
-                # 限制最多显示100个学者
+                # Limit to displaying at most 100 scholars
                 display_authors = top_authors[:100]
 
                 for rank, (author, total) in enumerate(display_authors, 1):
@@ -564,10 +539,10 @@ class CSRankingsDashboard:
                         top_n = min(5, len(df))
                         if top_n > 0:
                             top5_df = df.head(top_n)
-                            # 确保所有年份都有数据
+                            # Ensure data for all years
                             year_columns = [str(year) for year in range(start_year, end_year + 1)]
 
-                            # 为每个作者创建每年的数据
+                            # Create yearly data for each author
                             trend_data = []
                             for idx, row in top5_df.iterrows():
                                 author = row['Author']
@@ -600,14 +575,14 @@ class CSRankingsDashboard:
         filtered_articles = []
         conference_counts = defaultdict(int)
 
-        # 如果有选中的会议，将其添加到映射中
+        # If conferences are selected, add them to the mapping
         selected_confs_with_aliases = set()
         alias_to_canonical = {}
 
         if selected_conferences:
             for conf in selected_conferences:
                 selected_confs_with_aliases.add(conf)
-                # 添加这个会议的所有别名
+                # Add all aliases for this conference
                 for alias, canonical in self.conf_aliases.items():
                     if canonical == conf:
                         selected_confs_with_aliases.add(alias)
@@ -617,50 +592,50 @@ class CSRankingsDashboard:
             conf_orig = article.get("conf")
             year = int(article.get("year", 0))
 
-            # 应用会议别名转换
+            # Apply conference alias conversion
             conf = conf_orig
             if conf in self.conf_aliases:
                 conf = self.conf_aliases[conf]
-                # 在处理之前保留原始名称
+                # Preserve original name before processing
                 article["original_conf"] = conf_orig
 
-            # 如果没有选择会议或者会议在选择列表中，并且年份在范围内
+            # If no conferences selected or the conference is in the selected list, and year is in range
             if (not selected_conferences or conf in selected_confs_with_aliases) and \
                     start_year <= year <= end_year:
                 filtered_articles.append(article)
 
-                # 统计时使用规范化后的会议名称
+                # Use normalized conference name for counting
                 conf_for_counting = conf
                 if conf_orig in alias_to_canonical:
                     conf_for_counting = alias_to_canonical[conf_orig]
 
                 conference_counts[conf_for_counting] += 1
 
-        # 打印匹配的文章数量和会议分布
-        st.write(f"找到 {len(filtered_articles)} 篇符合条件的文章")
+        # Print number of matching articles and conference distribution
+        st.write(f"Found {len(filtered_articles)} articles matching the criteria")
         if filtered_articles:
-            st.write("会议分布:")
-            # 按数量排序展示
+            st.write("Conference distribution:")
+            # Sort conferences by count
             sorted_confs = sorted(conference_counts.items(), key=lambda x: x[1], reverse=True)
             for conf, count in sorted_confs:
-                st.write(f"  - {conf}: {count} 篇")
+                st.write(f"  - {conf}: {count} papers")
 
-            # 显示别名使用情况
+            # Show alias usage
             alias_usage = defaultdict(int)
             for article in filtered_articles:
                 if "original_conf" in article and article["original_conf"] != article.get("conf"):
                     alias_usage[f"{article['original_conf']} -> {article.get('conf')}"] += 1
 
             if alias_usage:
-                st.write("会议别名使用情况:")
+                st.write("Conference alias usage:")
                 for alias_map, count in alias_usage.items():
-                    st.write(f"  - {alias_map}: {count} 篇")
+                    st.write(f"  - {alias_map}: {count} papers")
 
         return filtered_articles
 
     def analyze_top_authors(self, filtered_articles, top_n=100):
         """Analyze top authors"""
-        # 如果top_n是None，则显示所有有发表的作者
+        # If top_n is None, display all authors with publications
         author_counts = defaultdict(int)
         author_yearly_counts = defaultdict(lambda: defaultdict(int))
 
@@ -677,14 +652,14 @@ class CSRankingsDashboard:
         # Sort by total paper count
         sorted_authors = sorted(author_counts.items(), key=lambda x: x[1], reverse=True)
 
-        # 如果top_n是None，显示所有结果；否则，截取前top_n个
+        # If top_n is None, show all results; otherwise, take the top_n
         top_authors = sorted_authors if top_n is None else sorted_authors[:top_n]
 
         return top_authors, author_yearly_counts
 
     def analyze_top_institutions(self, filtered_articles, top_n=50):
         """Analyze top institutions"""
-        # 如果top_n是None，则显示所有有发表的机构
+        # If top_n is None, display all institutions with publications
         institution_counts = defaultdict(int)
         institution_yearly_counts = defaultdict(lambda: defaultdict(int))
         institution_top_authors = defaultdict(lambda: defaultdict(int))
@@ -704,7 +679,7 @@ class CSRankingsDashboard:
         # Sort institutions by total paper count
         sorted_institutions = sorted(institution_counts.items(), key=lambda x: x[1], reverse=True)
 
-        # 如果top_n是None，显示所有结果；否则，截取前top_n个
+        # If top_n is None, show all results; otherwise, take the top_n
         top_institutions = sorted_institutions if top_n is None else sorted_institutions[:top_n]
 
         # Get Top 10 authors for each institution
