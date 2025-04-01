@@ -2,44 +2,39 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objs as go
-from collections import defaultdict
 import json
 import csv
 import os
+from collections import defaultdict
 from pathlib import Path
-import copy  # 引入copy模块
+import copy
 
 
 class CSRankingsDashboard:
     def __init__(self, root_dir=None):
-        """
-        Initialize the dashboard with a configurable root directory
-
-        Args:
-            root_dir: Path to CSRankings data directory. If None, uses the directory of this script.
-        """
+        """初始化仪表板，可配置根目录"""
         if root_dir is None:
-            # Default to the directory where this script is located
             self.root_dir = Path(__file__).parent.absolute()
         else:
             self.root_dir = Path(root_dir)
 
+        # 初始化并加载数据
         self.load_data()
         self.conf_aliases = self.get_conference_aliases()
+        self.areas_info = self.get_areas_and_conferences()
 
     def load_data(self):
-        """Load necessary data files"""
-        # Load article data
+        """加载必要的数据文件"""
+        # 加载文章数据
         articles_path = self.root_dir / "articles.json"
         try:
             with open(articles_path, "r") as f:
                 self.articles = json.load(f)
         except FileNotFoundError:
-            st.error(f"Could not find articles.json at {articles_path}")
+            st.error(f"找不到articles.json文件: {articles_path}")
             self.articles = []
 
-        # Load non-US institution information
+        # 加载非美国机构信息
         self.non_us_institutions = set()
         country_info_path = self.root_dir / "country-info.csv"
         if country_info_path.exists():
@@ -49,10 +44,9 @@ class CSRankingsDashboard:
                     if row["countryabbrv"].lower() != "us":
                         self.non_us_institutions.add(row["institution"])
         else:
-            st.warning(
-                f"Country info file not found at {country_info_path}. All institutions will be treated as US institutions.")
+            st.warning(f"找不到国家信息文件: {country_info_path}。所有机构将被视为美国机构。")
 
-        # Load author-institution mapping
+        # 加载作者-机构映射
         self.author_institutions = {}
         all_institutions = set()
         faculty_path = self.root_dir / "faculty-affiliations.csv"
@@ -63,14 +57,14 @@ class CSRankingsDashboard:
                     self.author_institutions[row["name"]] = row["affiliation"]
                     all_institutions.add(row["affiliation"])
         except FileNotFoundError:
-            st.error(f"Could not find faculty-affiliations.csv at {faculty_path}")
+            st.error(f"找不到faculty-affiliations.csv文件: {faculty_path}")
+            all_institutions = set()
 
-        # Default assumption: institutions not in the non-US list are US institutions
+        # 默认假设：非美国机构列表中未包含的机构是美国机构
         self.us_institutions = all_institutions - self.non_us_institutions
 
     def get_conference_aliases(self):
-        """Return a mapping of conference aliases to standard names"""
-        # Build conference alias mapping based on CSRankings.py definitions
+        """返回会议别名到标准名称的映射"""
         return {
             # VLDB aliases
             "Proc. VLDB Endow.": "VLDB",
@@ -225,8 +219,8 @@ class CSRankingsDashboard:
         }
 
     def get_areas_and_conferences(self):
-        """Get all research areas and conference details"""
-        areas = {
+        """获取所有研究领域和会议详细信息"""
+        return {
             "AI": {
                 "areas": ["AI", "Machine Learning", "NLP"],
                 "conferences": ["NeurIPS", "ICML", "ICLR", "AAAI", "ACL", "EMNLP", "NAACL", "IJCAI"]
@@ -239,7 +233,6 @@ class CSRankingsDashboard:
                 "areas": ["Graphics"],
                 "conferences": ["SIGGRAPH", "SIGGRAPH Asia", "Eurographics"]
             },
-
             "Computer Architecture": {
                 "areas": ["Computer Architecture"],
                 "conferences": ["ISCA", "MICRO", "HPCA", "SC", "HPDC", "ICS"]
@@ -256,17 +249,14 @@ class CSRankingsDashboard:
                 "areas": ["Programming Languages"],
                 "conferences": ["POPL", "PLDI", "ICFP", "OOPSLA", "CAV", "LICS"]
             },
-
             "Software Engineering": {
                 "areas": ["Software Engineering"],
                 "conferences": ["ICSE", "FSE", "ASE", "ISSTA"]
             },
-
             "Security & Privacy": {
                 "areas": ["Security"],
                 "conferences": ["CCS", "Oakland", "USENIX Security", "NDSS", "CRYPTO", "EUROCRYPT"]
             },
-
             "Mobile Computing": {
                 "areas": ["Mobile Computing"],
                 "conferences": ["MobiCom", "MobiSys", "SenSys"]
@@ -283,7 +273,6 @@ class CSRankingsDashboard:
                 "areas": ["Electronic Design Automation"],
                 "conferences": ["DAC", "ICCAD"]
             },
-
             "Robotics": {
                 "areas": ["Robotics"],
                 "conferences": ["ICRA", "IROS", "RSS"]
@@ -304,7 +293,6 @@ class CSRankingsDashboard:
                 "areas": ["Bioinformatics"],
                 "conferences": ["ISMB", "RECOMB"]
             },
-
             "E-commerce": {
                 "areas": ["E-commerce"],
                 "conferences": ["EC", "WINE"]
@@ -314,388 +302,281 @@ class CSRankingsDashboard:
                 "conferences": ["SIGCSE"]
             }
         }
-        return areas
 
-    def create_streamlit_app(self):
-        """Create Streamlit application with a top-down layout for better mobile experience"""
-        # Set page configuration
-        st.set_page_config(page_title="Academic Analysis Dashboard", layout="wide")
-        
-        # App title
-        st.title("Academic Publications Analysis Dashboard")
+    def run_streamlit_app(self):
+        """创建Streamlit应用，采用自上而下的布局以获得更好的移动体验"""
+        # 设置页面配置
+        st.set_page_config(page_title="学术发表分析仪表板", layout="wide")
 
-        # Initialize session state if not already done
-        if 'start_analysis' not in st.session_state:
-            st.session_state.start_analysis = False
-            
-        # Configuration section in a collapsible container at the top
-        with st.expander("📋 Configuration", expanded=True):
-            # Use columns to organize configuration options horizontally when possible
+        # 应用标题
+        st.title("学术出版物分析仪表板")
+
+        # 初始化会话状态变量，如果尚未完成
+        if 'last_run_id' not in st.session_state:
+            st.session_state.last_run_id = 0
+
+        # 使用表单收集所有输入并一次提交
+        with st.form("analysis_form"):
+            st.subheader("配置分析参数")
+
+            # 使用列组织配置选项
             col1, col2 = st.columns(2)
-            
+
             with col1:
-                # Analysis type selection
+                # 分析类型选择
                 analysis_type = st.radio(
-                    "Select analysis type",
+                    "选择分析类型",
                     ["Top 100 Scholars", "Top 100 Institutions"],
-                    help="Select the type of entity you want to analyze"
+                    index=0
                 )
-                
-                # Year selection
+
+                # 年份选择
                 start_year, end_year = st.slider(
-                    "Select year range",
+                    "选择年份范围",
                     min_value=2010,
                     max_value=2025,
-                    value=(2020, 2025),
-                    help="Select the year range for your analysis"
+                    value=(2020, 2025)
                 )
-            
+
             with col2:
-                # Get areas and conferences information
-                areas_info = self.get_areas_and_conferences()
-                
-                # Research area multi-select
-                selected_top_level_areas = st.multiselect(
-                    "Select research areas",
-                    list(areas_info.keys()),
-                    help="Select research areas you're interested in"
+                # 研究领域多选
+                selected_areas = st.multiselect(
+                    "选择研究领域",
+                    list(self.areas_info.keys())
                 )
-                
-                # Update available conferences based on selected areas
+
+                # 根据所选领域更新可用会议
                 all_available_conferences = []
-                if selected_top_level_areas:
-                    for area in selected_top_level_areas:
-                        all_available_conferences.extend(areas_info[area]["conferences"])
-                
+                if selected_areas:
+                    for area in selected_areas:
+                        all_available_conferences.extend(self.areas_info[area]["conferences"])
+                    # 去重
+                    all_available_conferences = list(set(all_available_conferences))
+
+                # 会议多选
                 selected_conferences = st.multiselect(
-                    "Select conferences",
-                    list(set(all_available_conferences)),
-                    help="Select specific conferences you want to analyze"
+                    "选择会议",
+                    all_available_conferences
                 )
-            
-            # Execute analysis button - centered and more prominent
-            _, btn_col, _ = st.columns([1, 2, 1])
-            with btn_col:
-                if st.button("Start Analysis", type="primary", use_container_width=True):
-                    # 添加分析ID，每次点击按钮时递增，强制重新分析
-                    if 'analysis_id' not in st.session_state:
-                        st.session_state.analysis_id = 1
-                    else:
-                        st.session_state.analysis_id += 1
-                        
-                    st.session_state.start_analysis = True
-                    st.session_state.analysis_type = analysis_type
-                    st.session_state.start_year = start_year
-                    st.session_state.end_year = end_year
-                    st.session_state.selected_conferences = selected_conferences
-                    
-        # Results section - using session state to maintain state between reruns
-        if st.session_state.start_analysis:
-            # Horizontal line to separate configuration from results
-            st.markdown("---")
-            
-            # 添加调试信息显示当前分析参数
-            st.write(f"Current analysis ID: {st.session_state.get('analysis_id', 'Not set')}")
-            st.write(f"Analysis type: {st.session_state.analysis_type}")
-            st.write(f"Year range: {st.session_state.start_year}-{st.session_state.end_year}")
-            st.write(f"Selected conferences: {', '.join(st.session_state.selected_conferences) if st.session_state.selected_conferences else 'All'}")
-            
-            # Filter articles
-            filtered_articles = self.filter_articles(
-                st.session_state.selected_conferences,
-                st.session_state.start_year,
-                st.session_state.end_year
+
+            # 提交按钮 - 居中且更突出
+            submit_button = st.form_submit_button(
+                "开始分析",
+                use_container_width=True,
+                type="primary"
             )
 
-            if not filtered_articles:
-                st.warning("No articles found matching your criteria. We'll still try to display any available data.")
-                # Continue execution even if no articles found
-                # This allows showing partial or empty results instead of stopping
+        # 当用户提交表单时
+        if submit_button:
+            # 增加运行ID以跟踪新的分析请求
+            st.session_state.last_run_id += 1
 
-            # Choose analysis method based on type
-            if st.session_state.analysis_type == "Top 100 Institutions":
-                # Analyze top institutions - display all institutions with publications
-                top_institutions, inst_yearly_counts, inst_top_authors = self.analyze_top_institutions(
-                    filtered_articles, top_n=None)
+            # 在会话状态中保存当前的分析参数
+            st.session_state.current_params = {
+                "run_id": st.session_state.last_run_id,
+                "analysis_type": analysis_type,
+                "start_year": start_year,
+                "end_year": end_year,
+                "selected_conferences": selected_conferences
+            }
 
-                st.write(f"Found {len(top_institutions)} institutions with publications meeting the criteria")
+            # 显示分析状态
+            st.success(f"分析已启动（ID: {st.session_state.last_run_id}）")
 
-                # Create dataframe for display - even if empty, we'll create a structure
-                inst_data = []
-                # Limit to displaying at most 100 institutions
-                display_institutions = top_institutions[:100]
+        # 如果存在当前分析参数，则显示结果
+        if 'current_params' in st.session_state:
+            params = st.session_state.current_params
 
-                for rank, (inst, total) in enumerate(display_institutions, 1):
-                    row = {
-                        "Rank": rank,
-                        "Institution": inst,
-                        "Total Papers": total
-                    }
+            # 水平线分隔配置和结果
+            st.markdown("---")
 
-                    # Add yearly paper counts
-                    for year in range(st.session_state.start_year, st.session_state.end_year + 1):
-                        row[str(year)] = inst_yearly_counts[inst].get(year, 0)
+            # 显示当前分析参数
+            st.subheader("当前分析参数")
+            st.write(f"分析类型: {params['analysis_type']}")
+            st.write(f"年份范围: {params['start_year']}-{params['end_year']}")
+            st.write(
+                f"选定会议: {', '.join(params['selected_conferences']) if params['selected_conferences'] else '所有会议'}")
 
-                    # Add Top 10 authors
-                    top_10_authors = inst_top_authors[inst]
-                    row["Top 10 Authors"] = ", ".join([f"{author}({count})" for author, count in top_10_authors])
+            # 进行分析
+            self.run_analysis(params)
 
-                    inst_data.append(row)
+    def run_analysis(self, params):
+        """根据参数运行分析"""
+        # 过滤文章
+        filtered_articles = self.filter_articles(
+            params['selected_conferences'],
+            params['start_year'],
+            params['end_year']
+        )
 
-                # Even if we have no data, create an empty DataFrame with proper columns
-                if not inst_data:
-                    columns = ["Rank", "Institution", "Total Papers", "Top 10 Authors"]
-                    columns.extend([str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)])
-                    df = pd.DataFrame(columns=columns)
-                    st.info("No institutions found with papers matching your criteria.")
-                else:
-                    df = pd.DataFrame(inst_data)
-
-                    # Display results
-                    st.header("Institution Analysis Results")
-
-                    # Institution paper count table
-                    with st.expander(f"Institutions with Publications ({len(df)} found)", expanded=True):
-                        st.dataframe(df.set_index('Rank'), use_container_width=True)
-
-                    # Only display charts if we have data
-                    if not df.empty:
-                        # Institution paper count bar chart
-                        fig = px.bar(
-                            df,
-                            x='Institution',
-                            y='Total Papers',
-                            title=f"{st.session_state.start_year}-{st.session_state.end_year} US Institutions with Publications in Selected Conferences",
-                            labels={'Total Papers': 'Paper Count', 'Institution': 'Institution Name'}
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-
-                        # Yearly trends - only top 5 institutions or all if less than 5
-                        top_n = min(5, len(df))
-                        if top_n > 0:
-                            top5_df = df.head(top_n)
-                            # Ensure data for all years
-                            year_columns = [str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)]
-                            yearly_trend = top5_df[year_columns]
-
-                            # Create yearly data for each institution
-                            trend_data = []
-                            for idx, row in top5_df.iterrows():
-                                institution = row['Institution']
-                                for year in year_columns:
-                                    trend_data.append({
-                                        'Institution': institution,
-                                        'Year': year,
-                                        'Papers': row[year]
-                                    })
-
-                            trend_df = pd.DataFrame(trend_data)
-
-                            trend_fig = px.line(
-                                trend_df,
-                                x='Year',
-                                y='Papers',
-                                color='Institution',
-                                title=f"{st.session_state.start_year}-{st.session_state.end_year} Top {top_n} Institutions Yearly Paper Trends",
-                                markers=True
-                            )
-                            # Improve line visibility and ensure x-axis shows all years
-                            trend_fig.update_traces(line=dict(width=3))
-                            trend_fig.update_xaxes(tickvals=year_columns)
-                            st.plotly_chart(trend_fig, use_container_width=True)
-                        else:
-                            st.info("No trend data available for visualization.")
-
-            else:  # Top 100 Scholars
-                # Analyze top authors - display all scholars with publications
-                top_authors, author_yearly_counts = self.analyze_top_authors(filtered_articles, top_n=None)
-
-                st.write(f"Found {len(top_authors)} scholars with publications meeting the criteria")
-
-                # Create dataframe for display - even if empty, we'll create a structure
-                author_data = []
-                # Limit to displaying at most 100 scholars
-                display_authors = top_authors[:100]
-
-                for rank, (author, total) in enumerate(display_authors, 1):
-                    row = {
-                        "Rank": rank,
-                        "Author": author,
-                        "Institution": self.author_institutions.get(author, "Unknown"),
-                        "Total Papers": total
-                    }
-
-                    # Add yearly paper counts
-                    for year in range(st.session_state.start_year, st.session_state.end_year + 1):
-                        row[str(year)] = author_yearly_counts[author].get(year, 0)
-
-                    author_data.append(row)
-
-                # Even if we have no data, create an empty DataFrame with proper columns
-                if not author_data:
-                    columns = ["Rank", "Author", "Institution", "Total Papers"]
-                    columns.extend([str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)])
-                    df = pd.DataFrame(columns=columns)
-                    st.info("No authors found with papers matching your criteria.")
-                else:
-                    df = pd.DataFrame(author_data)
-
-                    # Display results
-                    st.header("Scholar Analysis Results")
-
-                    # Author paper count table
-                    with st.expander(f"Scholars with Publications ({len(df)} found)", expanded=True):
-                        st.dataframe(df.set_index('Rank'), use_container_width=True)
-
-                    # Only display charts if we have data
-                    if not df.empty:
-                        # Author paper count bar chart
-                        fig = px.bar(
-                            df,
-                            x='Author',
-                            y='Total Papers',
-                            title=f"{st.session_state.start_year}-{st.session_state.end_year} US Authors with Publications in Selected Conferences",
-                            labels={'Total Papers': 'Paper Count', 'Author': 'Author Name'}
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-
-                        # Yearly trends - only top 5 authors or all if less than 5
-                        top_n = min(5, len(df))
-                        if top_n > 0:
-                            top5_df = df.head(top_n)
-                            # Ensure data for all years
-                            year_columns = [str(year) for year in range(st.session_state.start_year, st.session_state.end_year + 1)]
-
-                            # Create yearly data for each author
-                            trend_data = []
-                            for idx, row in top5_df.iterrows():
-                                author = row['Author']
-                                for year in year_columns:
-                                    trend_data.append({
-                                        'Author': author,
-                                        'Year': year,
-                                        'Papers': row[year]
-                                    })
-
-                            trend_df = pd.DataFrame(trend_data)
-
-                            trend_fig = px.line(
-                                trend_df,
-                                x='Year',
-                                y='Papers',
-                                color='Author',
-                                title=f"{st.session_state.start_year}-{st.session_state.end_year} Top {top_n} Scholars Yearly Paper Trends",
-                                markers=True
-                            )
-                            # Improve line visibility and ensure x-axis shows all years
-                            trend_fig.update_traces(line=dict(width=3))
-                            trend_fig.update_xaxes(tickvals=year_columns)
-                            st.plotly_chart(trend_fig, use_container_width=True)
-                        else:
-                            st.info("No trend data available for visualization.")
+        # 根据分析类型选择分析方法
+        if params['analysis_type'] == "Top 100 Institutions":
+            self.analyze_institutions(filtered_articles, params)
+        else:  # Top 100 Scholars
+            self.analyze_scholars(filtered_articles, params)
 
     def filter_articles(self, selected_conferences, start_year, end_year):
-        """Filter articles based on criteria"""
-        filtered_articles = []
-        conference_counts = defaultdict(int)
-
-        # 创建深拷贝，避免修改原始数据
+        """根据条件筛选文章"""
+        # 深拷贝文章列表，避免修改原始数据
         articles_copy = copy.deepcopy(self.articles)
 
-        # If conferences are selected, add them to the mapping
+        # 收集选定会议及其别名
         selected_confs_with_aliases = set()
         alias_to_canonical = {}
 
         if selected_conferences:
             for conf in selected_conferences:
                 selected_confs_with_aliases.add(conf)
-                # Add all aliases for this conference
+                # 添加该会议的所有别名
                 for alias, canonical in self.conf_aliases.items():
                     if canonical == conf:
                         selected_confs_with_aliases.add(alias)
                         alias_to_canonical[alias] = canonical
 
+        # 筛选满足条件的文章
+        filtered_articles = []
+        conference_counts = defaultdict(int)
+
         for article in articles_copy:
-            conf_orig = article.get("conf")
+            conf_orig = article.get("conf", "")
             year = int(article.get("year", 0))
 
-            # Apply conference alias conversion
+            # 应用会议别名转换
             conf = conf_orig
             if conf in self.conf_aliases:
                 conf = self.conf_aliases[conf]
-                # 在拷贝上保存原始名称
-                article["original_conf"] = conf_orig
+                article["normalized_conf"] = conf
 
-            # If no conferences selected or the conference is in the selected list, and year is in range
+            # 如果没有选定会议或会议在选定列表中，且年份在范围内
             if (not selected_conferences or conf in selected_confs_with_aliases) and \
                     start_year <= year <= end_year:
                 filtered_articles.append(article)
 
-                # Use normalized conference name for counting
+                # 使用规范化的会议名称进行计数
                 conf_for_counting = conf
-                if conf_orig in alias_to_canonical:
-                    conf_for_counting = alias_to_canonical[conf_orig]
-
                 conference_counts[conf_for_counting] += 1
 
-        # Print number of matching articles and conference distribution
-        st.write(f"Found {len(filtered_articles)} articles matching the criteria")
+        # 输出匹配文章的数量和会议分布
+        st.write(f"找到 {len(filtered_articles)} 篇符合条件的文章")
         if filtered_articles:
-            st.write("Conference distribution:")
-            # Sort conferences by count
+            st.write("会议分布:")
+            # 按计数排序会议
             sorted_confs = sorted(conference_counts.items(), key=lambda x: x[1], reverse=True)
             for conf, count in sorted_confs:
-                st.write(f"  - {conf}: {count} papers")
-
-            # Show alias usage
-            alias_usage = defaultdict(int)
-            for article in filtered_articles:
-                if "original_conf" in article and article["original_conf"] != article.get("conf"):
-                    alias_usage[f"{article['original_conf']} -> {article.get('conf')}"] += 1
-
-            if alias_usage:
-                st.write("Conference alias usage:")
-                for alias_map, count in alias_usage.items():
-                    st.write(f"  - {alias_map}: {count} papers")
+                st.write(f"  - {conf}: {count} 篇论文")
 
         return filtered_articles
 
-    def analyze_top_authors(self, filtered_articles, top_n=100):
-        """Analyze top authors"""
-        # If top_n is None, display all authors with publications
+    def analyze_scholars(self, filtered_articles, params):
+        """分析顶尖学者"""
+        st.subheader("学者分析结果")
+
+        # 计算每位学者的论文数量
         author_counts = defaultdict(int)
         author_yearly_counts = defaultdict(lambda: defaultdict(int))
 
         for article in filtered_articles:
-            author = article.get("name")
+            author = article.get("name", "")
             year = int(article.get("year", 0))
 
-            # Only count US institution authors
+            # 只计算美国机构的作者
             if author in self.author_institutions and \
                     self.author_institutions[author] in self.us_institutions:
                 author_counts[author] += 1
                 author_yearly_counts[author][year] += 1
 
-        # Sort by total paper count
+        # 按总论文数排序
         sorted_authors = sorted(author_counts.items(), key=lambda x: x[1], reverse=True)
+        st.write(f"找到 {len(sorted_authors)} 位满足条件的学者")
 
-        # If top_n is None, show all results; otherwise, take the top_n
-        top_authors = sorted_authors if top_n is None else sorted_authors[:top_n]
+        # 限制显示最多100位学者
+        display_authors = sorted_authors[:100]
 
-        return top_authors, author_yearly_counts
+        if not display_authors:
+            st.info("没有找到符合条件的学者。")
+            return
 
-    def analyze_top_institutions(self, filtered_articles, top_n=50):
-        """Analyze top institutions"""
-        # If top_n is None, display all institutions with publications
+        # 创建数据框用于显示
+        author_data = []
+        for rank, (author, total) in enumerate(display_authors, 1):
+            row = {
+                "排名": rank,
+                "学者": author,
+                "机构": self.author_institutions.get(author, "未知"),
+                "总论文数": total
+            }
+
+            # 添加每年的论文数
+            for year in range(params['start_year'], params['end_year'] + 1):
+                row[str(year)] = author_yearly_counts[author].get(year, 0)
+
+            author_data.append(row)
+
+        # 创建数据框
+        df = pd.DataFrame(author_data)
+
+        # 显示学者论文数量表格
+        with st.expander(f"学者发表情况 (找到 {len(df)} 位)", expanded=True):
+            st.dataframe(df.set_index('排名'), use_container_width=True)
+
+        # 显示图表
+        # 学者论文数量条形图
+        fig = px.bar(
+            df,
+            x='学者',
+            y='总论文数',
+            title=f"{params['start_year']}-{params['end_year']} 美国学者在选定会议中的发表情况",
+            labels={'总论文数': '论文数量', '学者': '学者姓名'}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # 每年趋势 - 仅前5位学者或全部（如果少于5位）
+        top_n = min(5, len(df))
+        if top_n > 0:
+            top5_df = df.head(top_n)
+            # 确保所有年份的数据
+            year_columns = [str(year) for year in range(params['start_year'], params['end_year'] + 1)]
+
+            # 为每位学者创建每年数据
+            trend_data = []
+            for _, row in top5_df.iterrows():
+                author = row['学者']
+                for year in year_columns:
+                    trend_data.append({
+                        '学者': author,
+                        '年份': year,
+                        '论文数': row[year]
+                    })
+
+            trend_df = pd.DataFrame(trend_data)
+
+            trend_fig = px.line(
+                trend_df,
+                x='年份',
+                y='论文数',
+                color='学者',
+                title=f"{params['start_year']}-{params['end_year']} 前 {top_n} 位学者每年论文趋势",
+                markers=True
+            )
+            # 改进线条可见性并确保x轴显示所有年份
+            trend_fig.update_traces(line=dict(width=3))
+            trend_fig.update_xaxes(tickvals=year_columns)
+            st.plotly_chart(trend_fig, use_container_width=True)
+
+    def analyze_institutions(self, filtered_articles, params):
+        """分析顶尖机构"""
+        st.subheader("机构分析结果")
+
+        # 计算每个机构的论文数量
         institution_counts = defaultdict(int)
         institution_yearly_counts = defaultdict(lambda: defaultdict(int))
         institution_top_authors = defaultdict(lambda: defaultdict(int))
 
         for article in filtered_articles:
-            author = article.get("name")
+            author = article.get("name", "")
             year = int(article.get("year", 0))
 
-            # Only count US institutions
+            # 只计算美国机构
             if author in self.author_institutions:
                 institution = self.author_institutions[author]
                 if institution in self.us_institutions:
@@ -703,27 +584,100 @@ class CSRankingsDashboard:
                     institution_yearly_counts[institution][year] += 1
                     institution_top_authors[institution][author] += 1
 
-        # Sort institutions by total paper count
+        # 按总论文数排序
         sorted_institutions = sorted(institution_counts.items(), key=lambda x: x[1], reverse=True)
+        st.write(f"找到 {len(sorted_institutions)} 个满足条件的机构")
 
-        # If top_n is None, show all results; otherwise, take the top_n
-        top_institutions = sorted_institutions if top_n is None else sorted_institutions[:top_n]
+        # 限制显示最多100个机构
+        display_institutions = sorted_institutions[:100]
 
-        # Get Top 10 authors for each institution
+        if not display_institutions:
+            st.info("没有找到符合条件的机构。")
+            return
+
+        # 获取每个机构的前10位作者
         institution_top10_authors = {}
         for inst in institution_counts:
-            # Sort authors by paper count
+            # 按论文数量排序作者
             sorted_authors = sorted(institution_top_authors[inst].items(), key=lambda x: x[1], reverse=True)[:10]
             institution_top10_authors[inst] = sorted_authors
 
-        return top_institutions, institution_yearly_counts, institution_top10_authors
+        # 创建数据框用于显示
+        inst_data = []
+        for rank, (inst, total) in enumerate(display_institutions, 1):
+            row = {
+                "排名": rank,
+                "机构": inst,
+                "总论文数": total
+            }
+
+            # 添加每年的论文数
+            for year in range(params['start_year'], params['end_year'] + 1):
+                row[str(year)] = institution_yearly_counts[inst].get(year, 0)
+
+            # 添加前10位作者
+            top_10_authors = institution_top10_authors[inst]
+            row["前10位作者"] = ", ".join([f"{author}({count})" for author, count in top_10_authors])
+
+            inst_data.append(row)
+
+        # 创建数据框
+        df = pd.DataFrame(inst_data)
+
+        # 显示机构论文数量表格
+        with st.expander(f"机构发表情况 (找到 {len(df)} 个)", expanded=True):
+            st.dataframe(df.set_index('排名'), use_container_width=True)
+
+        # 显示图表
+        # 机构论文数量条形图
+        fig = px.bar(
+            df,
+            x='机构',
+            y='总论文数',
+            title=f"{params['start_year']}-{params['end_year']} 美国机构在选定会议中的发表情况",
+            labels={'总论文数': '论文数量', '机构': '机构名称'}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # 每年趋势 - 仅前5个机构或全部（如果少于5个）
+        top_n = min(5, len(df))
+        if top_n > 0:
+            top5_df = df.head(top_n)
+            # 确保所有年份的数据
+            year_columns = [str(year) for year in range(params['start_year'], params['end_year'] + 1)]
+
+            # 为每个机构创建每年数据
+            trend_data = []
+            for _, row in top5_df.iterrows():
+                institution = row['机构']
+                for year in year_columns:
+                    trend_data.append({
+                        '机构': institution,
+                        '年份': year,
+                        '论文数': row[year]
+                    })
+
+            trend_df = pd.DataFrame(trend_data)
+
+            trend_fig = px.line(
+                trend_df,
+                x='年份',
+                y='论文数',
+                color='机构',
+                title=f"{params['start_year']}-{params['end_year']} 前 {top_n} 个机构每年论文趋势",
+                markers=True
+            )
+            # 改进线条可见性并确保x轴显示所有年份
+            trend_fig.update_traces(line=dict(width=3))
+            trend_fig.update_xaxes(tickvals=year_columns)
+            st.plotly_chart(trend_fig, use_container_width=True)
 
 
 def main():
-    # Use current directory by default, can be overridden with environment variables
+    # 默认使用当前目录，可以通过环境变量覆盖
     data_dir = os.environ.get("CSRANKINGS_DATA_DIR", None)
     dashboard = CSRankingsDashboard(data_dir)
-    dashboard.create_streamlit_app()
+    dashboard.run_streamlit_app()
 
 
 if __name__ == "__main__":
