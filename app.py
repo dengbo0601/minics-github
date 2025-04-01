@@ -8,7 +8,6 @@ import json
 import csv
 import os
 from pathlib import Path
-import copy  # 引入copy模块
 
 
 class CSRankingsDashboard:
@@ -377,13 +376,8 @@ class CSRankingsDashboard:
             _, btn_col, _ = st.columns([1, 2, 1])
             with btn_col:
                 if st.button("Start Analysis", type="primary", use_container_width=True):
-                    # 添加分析ID，每次点击按钮时递增，强制重新分析
-                    if 'analysis_id' not in st.session_state:
-                        st.session_state.analysis_id = 1
-                    else:
-                        st.session_state.analysis_id += 1
-                        
                     st.session_state.start_analysis = True
+                    # 修复：每次点击按钮时更新会话状态中的参数
                     st.session_state.analysis_type = analysis_type
                     st.session_state.start_year = start_year
                     st.session_state.end_year = end_year
@@ -394,11 +388,7 @@ class CSRankingsDashboard:
             # Horizontal line to separate configuration from results
             st.markdown("---")
             
-            # 添加调试信息显示当前分析参数
-            st.write(f"Current analysis ID: {st.session_state.get('analysis_id', 'Not set')}")
-            st.write(f"Analysis type: {st.session_state.analysis_type}")
-            st.write(f"Year range: {st.session_state.start_year}-{st.session_state.end_year}")
-            st.write(f"Selected conferences: {', '.join(st.session_state.selected_conferences) if st.session_state.selected_conferences else 'All'}")
+            # 移除了此处的条件检查，直接使用会话状态中最新的参数
             
             # Filter articles
             filtered_articles = self.filter_articles(
@@ -599,9 +589,6 @@ class CSRankingsDashboard:
         filtered_articles = []
         conference_counts = defaultdict(int)
 
-        # 创建深拷贝，避免修改原始数据
-        articles_copy = copy.deepcopy(self.articles)
-
         # If conferences are selected, add them to the mapping
         selected_confs_with_aliases = set()
         alias_to_canonical = {}
@@ -615,7 +602,7 @@ class CSRankingsDashboard:
                         selected_confs_with_aliases.add(alias)
                         alias_to_canonical[alias] = canonical
 
-        for article in articles_copy:
+        for article in self.articles:
             conf_orig = article.get("conf")
             year = int(article.get("year", 0))
 
@@ -623,7 +610,7 @@ class CSRankingsDashboard:
             conf = conf_orig
             if conf in self.conf_aliases:
                 conf = self.conf_aliases[conf]
-                # 在拷贝上保存原始名称
+                # Preserve original name before processing
                 article["original_conf"] = conf_orig
 
             # If no conferences selected or the conference is in the selected list, and year is in range
