@@ -377,18 +377,18 @@ class CSRankingsDashboard:
             with btn_col:
                 if st.button("Start Analysis", type="primary", use_container_width=True):
                     st.session_state.start_analysis = True
+                    # 修复：每次点击按钮时更新会话状态中的参数
+                    st.session_state.analysis_type = analysis_type
+                    st.session_state.start_year = start_year
+                    st.session_state.end_year = end_year
+                    st.session_state.selected_conferences = selected_conferences
                     
         # Results section - using session state to maintain state between reruns
         if st.session_state.start_analysis:
             # Horizontal line to separate configuration from results
             st.markdown("---")
             
-            # Store these in session state to preserve between renders
-            if 'analysis_type' not in st.session_state:
-                st.session_state.analysis_type = analysis_type
-                st.session_state.start_year = start_year
-                st.session_state.end_year = end_year
-                st.session_state.selected_conferences = selected_conferences
+            # 移除了此处的条件检查，直接使用会话状态中最新的参数
             
             # Filter articles
             filtered_articles = self.filter_articles(
